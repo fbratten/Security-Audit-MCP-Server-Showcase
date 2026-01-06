@@ -315,12 +315,3 @@ This showcase demonstrates the capabilities of the Security Audit MCP Server, a 
 - **GitHub**: [fbratten](https://github.com/fbratten)
 - **Email**: jack.rumble556@passfwd.com
 
----
-
-## License
-
-This showcase content is provided for demonstration purposes.
-
-Source code is proprietary. All rights reserved.
-
-© 2025 fbratten
