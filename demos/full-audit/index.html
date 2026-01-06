@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Full Audit - Security Audit MCP Server</title>
+    <style>
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-tertiary: #21262d;
+            --text-primary: #c9d1d9;
+            --text-secondary: #8b949e;
+            --accent-blue: #58a6ff;
+            --accent-green: #3fb950;
+            --accent-yellow: #d29922;
+            --accent-red: #f85149;
+            --accent-purple: #a371f7;
+            --border: #30363d;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--accent-blue);
+            text-decoration: none;
+            margin-bottom: 2rem;
+        }
+
+        .back-link:hover { text-decoration: underline; }
+
+        header {
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            color: var(--accent-purple);
+        }
+
+        .subtitle { color: var(--text-secondary); }
+
+        .audit-btn {
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+            border: none;
+            color: white;
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.1rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 2rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .audit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(88, 166, 255, 0.3);
+        }
+
+        .audit-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .pipeline {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .stage {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.25rem;
+            transition: border-color 0.3s;
+        }
+
+        .stage.active { border-color: var(--accent-blue); }
+        .stage.complete { border-color: var(--accent-green); }
+        .stage.failed { border-color: var(--accent-red); }
+
+        .stage-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.75rem;
+        }
+
+        .stage-title {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-weight: 600;
+        }
+
+        .stage-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--bg-tertiary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+        }
+
+        .stage.complete .stage-icon { background: var(--accent-green); }
+        .stage.failed .stage-icon { background: var(--accent-red); }
+        .stage.active .stage-icon { background: var(--accent-blue); }
+
+        .stage-status {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .stage.active .stage-status { color: var(--accent-blue); }
+        .stage.complete .stage-status { color: var(--accent-green); }
+        .stage.failed .stage-status { color: var(--accent-red); }
+
+        .stage-content {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .stage-results {
+            margin-top: 0.75rem;
+            padding-top: 0.75rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .result-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.25rem 0;
+        }
+
+        .result-label { color: var(--text-secondary); }
+        .result-value { color: var(--text-primary); font-weight: 500; }
+        .result-value.warning { color: var(--accent-yellow); }
+        .result-value.danger { color: var(--accent-red); }
+        .result-value.success { color: var(--accent-green); }
+
+        .spinner {
+            width: 18px;
+            height: 18px;
+            border: 2px solid var(--border);
+            border-top-color: var(--accent-blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .verdict-section {
+            background: var(--bg-secondary);
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            padding: 2rem;
+            margin-top: 1.5rem;
+            text-align: center;
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+
+        .verdict-section.visible { opacity: 1; }
+
+        .verdict-section.go { border-color: var(--accent-green); }
+        .verdict-section.conditional { border-color: var(--accent-yellow); }
+        .verdict-section.nogo { border-color: var(--accent-red); }
+
+        .final-verdict {
+            font-size: 3rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+
+        .verdict-section.go .final-verdict { color: var(--accent-green); }
+        .verdict-section.conditional .final-verdict { color: var(--accent-yellow); }
+        .verdict-section.nogo .final-verdict { color: var(--accent-red); }
+
+        .final-score {
+            font-size: 1.5rem;
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+        }
+
+        .verdict-summary {
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 1rem;
+            text-align: left;
+            max-width: 400px;
+            margin: 1rem auto 0;
+        }
+
+        .summary-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .summary-item:last-child { border-bottom: none; }
+
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="../" class="back-link">&larr; Back to Demos</a>
+
+        <header>
+            <h1>Full Audit Simulation</h1>
+            <p class="subtitle">Watch the complete security audit workflow from scan to verdict</p>
+        </header>
+
+        <button id="audit-btn" class="audit-btn" onclick="startAudit()">
+            <span>&#9654;</span> Run Full Security Audit
+        </button>
+
+        <div class="pipeline">
+            <div id="stage-1" class="stage">
+                <div class="stage-header">
+                    <div class="stage-title">
+                        <div class="stage-icon">1</div>
+                        <span>Stack Detection</span>
+                    </div>
+                    <span id="stage-1-status" class="stage-status">Pending</span>
+                </div>
+                <div class="stage-content">
+                    Analyzing project structure to identify languages and package managers...
+                </div>
+                <div id="stage-1-results" class="stage-results hidden"></div>
+            </div>
+
+            <div id="stage-2" class="stage">
+                <div class="stage-header">
+                    <div class="stage-title">
+                        <div class="stage-icon">2</div>
+                        <span>Secret Scanning</span>
+                    </div>
+                    <span id="stage-2-status" class="stage-status">Pending</span>
+                </div>
+                <div class="stage-content">
+                    Scanning for hardcoded credentials, API keys, and tokens...
+                </div>
+                <div id="stage-2-results" class="stage-results hidden"></div>
+            </div>
+
+            <div id="stage-3" class="stage">
+                <div class="stage-header">
+                    <div class="stage-title">
+                        <div class="stage-icon">3</div>
+                        <span>Dependency Scanning</span>
+                    </div>
+                    <span id="stage-3-status" class="stage-status">Pending</span>
+                </div>
+                <div class="stage-content">
+                    Checking dependencies for known vulnerabilities (CVE/OSV)...
+                </div>
+                <div id="stage-3-results" class="stage-results hidden"></div>
+            </div>
+
+            <div id="stage-4" class="stage">
+                <div class="stage-header">
+                    <div class="stage-title">
+                        <div class="stage-icon">4</div>
+                        <span>Static Code Analysis</span>
+                    </div>
+                    <span id="stage-4-status" class="stage-status">Pending</span>
+                </div>
+                <div class="stage-content">
+                    Running Semgrep and Bandit for security patterns...
+                </div>
+                <div id="stage-4-results" class="stage-results hidden"></div>
+            </div>
+
+            <div id="stage-5" class="stage">
+                <div class="stage-header">
+                    <div class="stage-title">
+                        <div class="stage-icon">5</div>
+                        <span>Policy Evaluation</span>
+                    </div>
+                    <span id="stage-5-status" class="stage-status">Pending</span>
+                </div>
+                <div class="stage-content">
+                    Evaluating findings against security policy gates...
+                </div>
+                <div id="stage-5-results" class="stage-results hidden"></div>
+            </div>
+        </div>
+
+        <div id="verdict-section" class="verdict-section">
+            <div id="final-verdict" class="final-verdict"></div>
+            <div id="final-score" class="final-score"></div>
+            <div class="verdict-summary">
+                <div class="summary-item">
+                    <span>Total Findings</span>
+                    <span id="total-findings">0</span>
+                </div>
+                <div class="summary-item">
+                    <span>Critical</span>
+                    <span id="critical-count" class="result-value">0</span>
+                </div>
+                <div class="summary-item">
+                    <span>High</span>
+                    <span id="high-count" class="result-value">0</span>
+                </div>
+                <div class="summary-item">
+                    <span>Gates Passed</span>
+                    <span id="gates-passed">0/3</span>
+                </div>
+                <div class="summary-item">
+                    <span>Scan Duration</span>
+                    <span id="scan-duration">0s</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const stages = [
+            {
+                id: 1,
+                duration: 800,
+                results: `
+                    <div class="result-row">
+                        <span class="result-label">Languages</span>
+                        <span class="result-value">Python, JavaScript</span>
+                    </div>
+                    <div class="result-row">
+                        <span class="result-label">Package Managers</span>
+                        <span class="result-value">pip, npm</span>
+                    </div>
+                    <div class="result-row">
+                        <span class="result-label">Scanners Applied</span>
+                        <span class="result-value">5</span>
+                    </div>
+                `
+            },
+            {
+                id: 2,
+                duration: 1200,
+                results: `
+                    <div class="result-row">
+                        <span class="result-label">Secrets Found</span>
+                        <span class="result-value danger">2</span>
+                    </div>
+                    <div class="result-row">
+                        <span class="result-label">Files Scanned</span>
+                        <span class="result-value">147</span>
+                    </div>
+                    <div class="result-row">
+                        <span class="result-label">Duration</span>
+                        <span class="result-value">1.2s</span>
+                    </div>
+                `
+            },
+            {
+                id: 3,
+                duration: 1500,
+                results: `
+                    <div class="result-row">
+                        <span class="result-label">Vulnerabilities</span>
+                        <span class="result-value warning">8</span>
+                    </div>
+                    <div class="result-row">
+                        <span class="result-label">Critical</span>
+                        <span class="result-value danger">1</span>
+                    </div>
+                    <div class="result-row">
+                        <span class="result-label">High</span>
+                        <span class="result-value warning">3</span>
+                    </div>
+                    <div class="result-row">
+                        <span class="result-label">KEV Matches</span>
+                        <span class="result-value danger">1</span>
+                    </div>
+                `
+            },
+            {
+                id: 4,
+                duration: 2000,
+                results: `
+                    <div class="result-row">
+                        <span class="result-label">Code Issues</span>
+                        <span class="result-value warning">12</span>
+                    </div>
+                    <div class="result-row">
+                        <span class="result-label">High Severity</span>
+                        <span class="result-value warning">4</span>
+                    </div>
+                    <div class="result-row">
+                        <span class="result-label">CWEs Identified</span>
+                        <span class="result-value">CWE-79, CWE-89, CWE-78</span>
+                    </div>
+                `
+            },
+            {
+                id: 5,
+                duration: 500,
+                results: `
+                    <div class="result-row">
+                        <span class="result-label">no_secrets</span>
+                        <span class="result-value danger">FAILED</span>
+                    </div>
+                    <div class="result-row">
+                        <span class="result-label">no_kev_vulnerabilities</span>
+                        <span class="result-value danger">FAILED</span>
+                    </div>
+                    <div class="result-row">
+                        <span class="result-label">no_critical_vulnerabilities</span>
+                        <span class="result-value danger">FAILED</span>
+                    </div>
+                `
+            }
+        ];
+
+        let running = false;
+
+        async function startAudit() {
+            if (running) return;
+            running = true;
+
+            const btn = document.getElementById('audit-btn');
+            btn.disabled = true;
+            btn.innerHTML = '<div class="spinner"></div> Running Audit...';
+
+            // Reset all stages
+            for (let i = 1; i <= 5; i++) {
+                document.getElementById(`stage-${i}`).className = 'stage';
+                document.getElementById(`stage-${i}-status`).textContent = 'Pending';
+                document.getElementById(`stage-${i}-results`).classList.add('hidden');
+            }
+            document.getElementById('verdict-section').classList.remove('visible', 'go', 'conditional', 'nogo');
+
+            let totalDuration = 0;
+
+            // Run each stage
+            for (const stage of stages) {
+                const stageEl = document.getElementById(`stage-${stage.id}`);
+                const statusEl = document.getElementById(`stage-${stage.id}-status`);
+                const resultsEl = document.getElementById(`stage-${stage.id}-results`);
+
+                // Start stage
+                stageEl.className = 'stage active';
+                statusEl.innerHTML = '<div class="spinner"></div> Running...';
+
+                await sleep(stage.duration);
+                totalDuration += stage.duration;
+
+                // Complete stage
+                stageEl.className = 'stage complete';
+                statusEl.textContent = 'Complete';
+                resultsEl.innerHTML = stage.results;
+                resultsEl.classList.remove('hidden');
+            }
+
+            // Show verdict
+            await sleep(500);
+            const verdictSection = document.getElementById('verdict-section');
+            verdictSection.className = 'verdict-section visible nogo';
+            document.getElementById('final-verdict').textContent = 'NO-GO';
+            document.getElementById('final-score').textContent = 'Score: 45/100';
+            document.getElementById('total-findings').textContent = '22';
+            document.getElementById('critical-count').textContent = '1';
+            document.getElementById('critical-count').className = 'result-value danger';
+            document.getElementById('high-count').textContent = '7';
+            document.getElementById('high-count').className = 'result-value warning';
+            document.getElementById('gates-passed').textContent = '0/3';
+            document.getElementById('scan-duration').textContent = ((totalDuration + 500) / 1000).toFixed(1) + 's';
+
+            btn.disabled = false;
+            btn.innerHTML = '<span>&#8635;</span> Run Again';
+            running = false;
+        }
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+    </script>
+</body>
+</html>
